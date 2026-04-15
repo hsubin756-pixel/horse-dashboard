@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ horse['name'] }} - 競馬データダッシュボード</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Yu Gothic', 'Meiryo', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%);
+            color: white;
+            padding: 20px 0;
+        }
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        .back-link {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .back-link:hover { color: white; }
+        .header h1 {
+            font-size: 28px;
+            margin: 8px 0 4px;
+        }
+        .header-sub { opacity: 0.8; font-size: 14px; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+        /* 統計カード */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .stat-card .number { font-size: 28px; font-weight: bold; color: #2d6a4f; }
+        .stat-card .label { font-size: 12px; color: #888; margin-top: 2px; }
+
+        /* セクション */
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .section h2 {
+            font-size: 16px;
+            color: #1a472a;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8f5e9;
+        }
+
+        /* 血統テーブル */
+        .pedigree-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .pedigree-table td {
+            padding: 10px 12px;
+            border: 1px solid #e8f5e9;
+        }
+        .pedigree-table .gen-label {
+            background: #f0f7f0;
+            color: #2d6a4f;
+            font-weight: 500;
+            width: 80px;
+            text-align: center;
+        }
+
+        /* グラフ2列 */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 768px) {
+            .chart-grid { grid-template-columns: 1fr; }
+        }
+        .chart-box {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .chart-box h3 {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        /* 距離・コース適性 */
+        .aptitude-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 768px) {
+            .aptitude-grid { grid-template-columns: 1fr; }
+        }
+        .apt-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .apt-bar {
+            background: #eee;
+            border-radius: 4px;
+            height: 6px;
+            margin-top: 4px;
+        }
+        .apt-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: #2d6a4f;
+        }
+
+        /* レース一覧 */
+        .race-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .race-table th {
+            background: #f8f8f8;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid #e8f5e9;
+        }
+        .race-table td {
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .race-table tr:hover { background: #f8fdf8; }
+        .pos-1 { color: #d4a017; font-weight: bold; }
+        .pos-2 { color: #888; font-weight: bold; }
+        .pos-3 { color: #a0522d; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-inner">
+            <a class="back-link" href="/">← 一覧に戻る</a>
+            <h1>{{ horse['name'].split('(')[0].strip() }}</h1>
+            <div class="header-sub">
+                {{ horse['gender'] }} / {{ horse['color'] }} · {{ horse['birth_date'] }}
+                · 調教師: {{ horse['trainer'] }}
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 統計カード -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="number">{{ total }}</div>
+                <div class="label">出走数</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ wins }}</div>
+                <div class="label">勝利</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ win_rate }}%</div>
+                <div class="label">勝率</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ top3 }}</div>
+                <div class="label">3着内</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ top3_rate }}%</div>
+                <div class="label">複勝率</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{{ avg_finish }}</div>
+                <div class="label">平均着順</div>
+            </div>
+        </div>
+
+        <!-- 血統 -->
+        <div class="section">
+            <h2>血統</h2>
+            <table class="pedigree-table">
+                <tr>
+                    <td class="gen-label" rowspan="2">父</td>
+                    <td rowspan="2"><strong>{{ horse['sire'] }}</strong></td>
+                    <td class="gen-label">父父</td>
+                    <td>{{ horse['sire_sire'] }}</td>
+                </tr>
+                <tr>
+                    <td class="gen-label">父母</td>
+                    <td>{{ horse['sire_dam'] }}</td>
+                </tr>
+                <tr>
+                    <td class="gen-label" rowspan="2">母</td>
+                    <td rowspan="2"><strong>{{ horse['dam'] }}</strong></td>
+                    <td class="gen-label">母父</td>
+                    <td>{{ horse['dam_sire'] }}</td>
+                </tr>
+                <tr>
+                    <td class="gen-label">母母</td>
+                    <td>{{ horse['dam_dam'] }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- グラフ -->
+        <div class="chart-grid">
+            <div class="chart-box">
+                <h3>着順分布</h3>
+                <canvas id="finishChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3>人気順位 vs 実際着順</h3>
+                <canvas id="popChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 距離・コース適性 -->
+        <div class="aptitude-grid">
+            <div class="section">
+                <h2>距離適性</h2>
+                {% for cat, stats in dist_stats.items() %}
+                <div class="apt-item">
+                    <span>{{ cat }}</span>
+                    <span>{{ stats.total }}回 · 平均{{ stats.avg }}着 · {{ stats.wins }}勝</span>
+                </div>
+                <div class="apt-bar">
+                    <div class="apt-bar-fill"
+                         style="width: {{ (stats.wins / stats.total * 100) if stats.total > 0 else 0 }}%">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="section">
+                <h2>コース適性</h2>
+                {% for surface, stats in surface_stats.items() %}
+                <div class="apt-item">
+                    <span>{{ surface }}</span>
+                    <span>{{ stats.total }}回 · 平均{{ stats.avg }}着 · {{ stats.wins }}勝</span>
+                </div>
+                <div class="apt-bar">
+                    <div class="apt-bar-fill"
+                         style="width: {{ (stats.wins / stats.total * 100) if stats.total > 0 else 0 }}%">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- レース一覧 -->
+        <div class="section">
+            <h2>全レース記録 ({{ races|length }}戦)</h2>
+            <div style="overflow-x: auto;">
+                <table class="race-table">
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>開催</th>
+                            <th>レース名</th>
+                            <th>着順</th>
+                            <th>騎手</th>
+                            <th>距離</th>
+                            <th>人気</th>
+                            <th>頭数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in races %}
+                        <tr>
+                            <td>{{ r['race_date'] }}</td>
+                            <td>{{ r['venue'] }}</td>
+                            <td>{{ r['race_name'] }}</td>
+                            <td class="{{ 'pos-1' if r['finish_pos'] == '1' else ('pos-2' if r['finish_pos'] == '2' else ('pos-3' if r['finish_pos'] == '3' else '')) }}">
+                                {{ r['finish_pos'] }}着
+                            </td>
+                            <td>{{ r['jockey'] }}</td>
+                            <td>{{ r['distance'] }}</td>
+                            <td>{{ r['popularity'] }}番人気</td>
+                            <td>{{ r['num_horses'] }}頭</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js グラフ描画 -->
+    <script>
+    // 着順分布グラフ
+    const finishData = {{ finish_distribution }};
+    new Chart(document.getElementById('finishChart'), {
+        type: 'bar',
+        data: {
+            labels: finishData.map((_, i) => (i+1) + '着'),
+            datasets: [{
+                data: finishData,
+                backgroundColor: finishData.map((_, i) =>
+                    i === 0 ? '#d4a017' :
+                    i === 1 ? '#aaa' :
+                    i === 2 ? '#a0522d' : '#2d6a4f88'
+                ),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+
+    // 人気 vs 着順 散布図
+    const popData = {{ pop_vs_finish | tojson }};
+    const maxVal = Math.max(
+        ...popData.map(d => d.pop),
+        ...popData.map(d => d.finish),
+        10
+    );
+    new Chart(document.getElementById('popChart'), {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: '各レース',
+                    data: popData.map(d => ({x: d.pop, y: d.finish})),
+                    backgroundColor: '#2d6a4f88',
+                    pointRadius: 6,
+                },
+                {
+                    label: '人気=着順',
+                    data: [{x:0,y:0}, {x:maxVal,y:maxVal}],
+                    type: 'line',
+                    borderColor: '#ccc',
+                    borderDash: [5,5],
+                    pointRadius: 0,
+                    fill: false,
+                }
+            ]
+        },
+        options: {
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            if (ctx.datasetIndex === 0) {
+                                const d = popData[ctx.dataIndex];
+                                return d.race + ': ' + d.pop + '番人気→' + d.finish + '着';
+                            }
+                            return '';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: '人気順位' }, beginAtZero: true },
+                y: { title: { display: true, text: '実際着順' }, beginAtZero: true }
+            }
+        }
+    });
+    </script>
+</body>
+</html>

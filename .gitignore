@@ -1,0 +1,19 @@
+# データベース (각자 수집해야 하므로)
+keiba.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 환경
+.env
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

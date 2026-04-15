@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>競馬データダッシュボード</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Yu Gothic', 'Meiryo', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        /* ヘッダー */
+        .header {
+            background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%);
+            color: white;
+            padding: 24px 0;
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header p { opacity: 0.8; font-size: 14px; }
+
+        /* 検索 */
+        .search-box {
+            max-width: 500px;
+            margin: 16px auto 0;
+            display: flex;
+            gap: 8px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        .search-box button {
+            padding: 10px 20px;
+            background: #40916c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .search-box button:hover { background: #52b788; }
+
+        /* メイン */
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+        /* 統計カード */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2d6a4f;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* 馬カード */
+        .horse-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+        .horse-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .horse-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        .horse-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1a472a;
+            margin-bottom: 4px;
+        }
+        .horse-sub {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        .horse-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .horse-info dt { color: #888; }
+        .horse-info dd { font-weight: 500; }
+
+        /* 勝率バー */
+        .rate-bar {
+            margin-top: 12px;
+            background: #eee;
+            border-radius: 6px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .rate-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #2d6a4f, #40916c);
+        }
+        .rate-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* 血統 */
+        .pedigree {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        /* 検索結果 */
+        .search-result {
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏇 競馬データダッシュボード</h1>
+        <p>netkeiba.comから収集した競走馬データの分析</p>
+
+        <form class="search-box" action="/search" method="get">
+            <input type="text" name="q" placeholder="馬名・種牡馬・調教師で検索..."
+                   value="{{ search_query or '' }}">
+            <button type="submit">検索</button>
+        </form>
+    </div>
+
+    <div class="container">
+        {% if search_query %}
+        <p class="search-result">
+            「{{ search_query }}」の検索結果: {{ horses|length }}件
+            <a href="/" style="margin-left:12px; color:#2d6a4f;">← 全馬表示</a>
+        </p>
+        {% endif %}
+
+        {% if not search_query %}
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="number">{{ horses|length }}</div>
+                <div class="label">登録馬</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">
+                    {{ horses|map(attribute='total_races')|sum if horses[0].total_races is defined else '—' }}
+                </div>
+                <div class="label">総レース記録</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">
+                    {{ horses|map(attribute='wins')|sum if horses[0].wins is defined else '—' }}
+                </div>
+                <div class="label">総勝利数</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="horse-grid">
+            {% for h in horses %}
+            <a class="horse-card" href="/horse/{{ h.url or h['url'] }}">
+                <div class="horse-name">
+                    {{ (h.name or h['name']).split('(')[0].strip() }}
+                </div>
+                <div class="horse-sub">
+                    {{ h.gender or h['gender'] }} / {{ h.color or h['color'] }}
+                    {% if h.birth_date or h['birth_date'] %}
+                     · {{ h.birth_date or h['birth_date'] }}
+                    {% endif %}
+                </div>
+
+                <dl class="horse-info">
+                    <dt>調教師</dt>
+                    <dd>{{ h.trainer or h['trainer'] or '—' }}</dd>
+
+                    <dt>通算成績</dt>
+                    <dd>{{ h.total_record or h['total_record'] or '—' }}</dd>
+
+                    <dt>父</dt>
+                    <dd>{{ h.sire or h['sire'] or '—' }}</dd>
+
+                    <dt>母</dt>
+                    <dd>{{ h.dam or h['dam'] or '—' }}</dd>
+                </dl>
+
+                {% if h.win_rate is defined %}
+                <div class="rate-bar">
+                    <div class="rate-bar-fill" style="width: {{ h.win_rate }}%"></div>
+                </div>
+                <div class="rate-text">
+                    <span>勝率 {{ h.win_rate }}%</span>
+                    <span>{{ h.wins }}勝 / {{ h.total_races }}戦</span>
+                </div>
+                {% endif %}
+
+                {% if h.sire %}
+                <div class="pedigree">
+                    血統: {{ h.sire or h['sire'] }} × {{ h.dam or h['dam'] }}
+                </div>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
